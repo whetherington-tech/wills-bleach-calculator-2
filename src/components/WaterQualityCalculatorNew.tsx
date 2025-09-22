@@ -1,23 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { WaterUtility, WaterSystem, CalculationResult } from '@/types/database'
+import { calculateShowerChlorineAbsorption, calculateTotalDailyExposure } from '@/utils/showerChlorineCalculations'
 import ResearchLoadingScreen from './ResearchLoadingScreen'
 import ManualChlorineEntry from './ManualChlorineEntry'
+import ProgressIndicator from './ProgressIndicator'
+import ErrorDisplay from './ErrorDisplay'
+import LoadingSpinner from './LoadingSpinner'
+import ZipCodeInput from './ZipCodeInput'
+import UtilitySelector from './UtilitySelector'
+import DailyGlassesInput from './DailyGlassesInput'
+import ShowerDurationInput from './ShowerDurationInput'
+import ResultsDisplay from './ResultsDisplay'
 
 export default function WaterQualityCalculatorNew() {
   const [zipCode, setZipCode] = useState('')
   const [availableUtilities, setAvailableUtilities] = useState<(WaterUtility | WaterSystem)[]>([])
   const [selectedUtility, setSelectedUtility] = useState<WaterUtility | WaterSystem | null>(null)
   const [dailyGlasses, setDailyGlasses] = useState(8)
+  const [showerMinutes, setShowerMinutes] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [result, setResult] = useState<CalculationResult | null>(null)
   const [utilityChlorineData, setUtilityChlorineData] = useState<any>(null)
   const [isResearching, setIsResearching] = useState(false)
   const [researchProgress, setResearchProgress] = useState('')
-  const [currentStep, setCurrentStep] = useState<'zip' | 'utility' | 'glasses' | 'loading' | 'results'>('zip')
+  const [currentStep, setCurrentStep] = useState<'zip' | 'utility' | 'glasses' | 'shower' | 'loading' | 'results'>('zip')
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [manualEntryError, setManualEntryError] = useState<any>(null)
 
@@ -48,6 +58,14 @@ export default function WaterQualityCalculatorNew() {
     setManualEntryError(null)
     setResearchProgress('')
   }
+
+  const handleGlassesNext = () => {
+    setCurrentStep('shower')
+  }
+
+  const handleShowerSelected = (minutes: number) => {
+    setShowerMinutes(minutes)
+  }
   
 
   const fetchUtilitiesByZipCode = async (zip: string) => {
@@ -58,6 +76,50 @@ export default function WaterQualityCalculatorNew() {
 
     try {
       let utilities: (WaterUtility | WaterSystem)[] = []
+
+      // Geographic-specific utility lookup based on zip code location
+      const zipCodeUtilityMap: Record<string, string[]> = {
+        // Nashville (Davidson County) - Metro Water Services only
+        '37203': ['metro water services'],
+        '37215': ['metro water services'],
+        '37204': ['metro water services'],
+        '37205': ['metro water services'],
+        '37206': ['metro water services'],
+        '37207': ['metro water services'],
+        '37208': ['metro water services'],
+        '37209': ['metro water services'],
+        '37210': ['metro water services'],
+        '37211': ['metro water services'],
+        '37212': ['metro water services'],
+        '37213': ['metro water services'],
+        '37214': ['metro water services'],
+        '37216': ['metro water services'],
+        '37217': ['metro water services'],
+        '37218': ['metro water services'],
+        '37219': ['metro water services'],
+        '37220': ['metro water services'],
+        '37221': ['metro water services'],
+        '37228': ['metro water services'],
+        '37240': ['metro water services'],
+
+        // Franklin area (Williamson County)
+        '37067': ['milcrofton', 'franklin', 'h.b.', 'hbts'],
+        '37064': ['franklin', 'h.b.', 'hbts', 'milcrofton'],
+        '37069': ['franklin', 'h.b.', 'hbts'], // Franklin
+
+        // Brentwood (Williamson County)
+        '37027': ['brentwood', 'harpeth valley', 'mallory valley'],
+
+        // Thompson's Station (Williamson County)
+        '37179': ['h.b.', 'hbts'], // H.B.&T.S. serves Thompson's Station
+
+        // Rutherford County
+        '37014': ['consolidated utility district', 'rutherford'], // Antioch/CUDRC
+
+        // Other Williamson County areas
+        '37135': ['nolensville', 'college grove'], // Nolensville-College Grove U.D.
+        '37046': ['nolensville', 'college grove'], // College Grove/Nolensville area
+      }
 
       // Step 0: First try to find in zip_code_mapping table
       const { data: zipMappings, error: zipError } = await supabase
@@ -80,7 +142,7 @@ export default function WaterQualityCalculatorNew() {
         }
       }
 
-      // Step 1: Try to find municipal systems in the exact zip code
+      // Step 1: Try to find municipal systems in the exact zip code with geographic filtering
       const { data: municipalSystems, error: municipalError } = await supabase
         .from('water_systems')
         .select('*')
@@ -89,13 +151,84 @@ export default function WaterQualityCalculatorNew() {
         .in('pws_type_code', ['CWS'])
         .in('owner_type_code', ['L', 'M']) // Municipal ownership
         .eq('pws_activity_code', 'A') // Only active utilities
-        .limit(3)
+        .limit(5)
 
       if (!municipalError && municipalSystems && municipalSystems.length > 0) {
-        utilities.push(...municipalSystems)
+        // Apply geographic filtering to prevent wrong utilities
+        const allowedUtilities = zipCodeUtilityMap[zip]
+
+        if (allowedUtilities) {
+          const relevantMunicipal = municipalSystems.filter(system => {
+            const systemName = system.pws_name.toLowerCase()
+
+            // Exclude obviously wrong utilities (like Columbia Power serving Nashville)
+            if (systemName.includes('columbia') && !allowedUtilities.includes('columbia')) {
+              return false
+            }
+
+            // Include if it matches our allowed utilities for this zip
+            return allowedUtilities.some(allowed =>
+              systemName.includes(allowed) ||
+              system.city_name?.toLowerCase().includes(allowed)
+            )
+          })
+          utilities.push(...relevantMunicipal)
+        } else {
+          // For unmapped zip codes, include all but filter out obvious mismatches
+          const filteredMunicipal = municipalSystems.filter(system => {
+            const systemName = system.pws_name.toLowerCase()
+            // Filter out utilities that are clearly in wrong locations
+            return !systemName.includes('columbia power')
+          })
+          utilities.push(...filteredMunicipal)
+        }
+      }
+
+      // Step 1.5: Use zip code mapping defined at top of function
+
+      const allowedUtilities = zipCodeUtilityMap[zip]
+
+      if (allowedUtilities) {
+        // Get utilities from curated table based on geographic mapping
+        const { data: curatedUtilities, error: curatedError } = await supabase
+          .from('water_utilities')
+          .select('*')
+          .eq('is_active', true)
+
+        if (!curatedError && curatedUtilities && curatedUtilities.length > 0) {
+          const relevantUtilities = curatedUtilities.filter(utility => {
+            const utilityName = utility.utility_name.toLowerCase()
+            return allowedUtilities.some(allowed =>
+              utilityName.includes(allowed) ||
+              (allowed === 'hbts' && (utilityName.includes('h.b.') || utilityName.includes('hb')))
+            )
+          })
+          utilities.push(...relevantUtilities)
+        }
       } else {
-        // Step 2: If no municipal systems in exact zip, find municipal systems in the same city
-        const { data: cityInfo, error: cityError } = await supabase
+        // Fallback for zip codes not in our mapping - use original logic but with stricter filtering
+        const { data: curatedUtilities, error: curatedError } = await supabase
+          .from('water_utilities')
+          .select('*')
+          .eq('is_active', true)
+          .in('city', ['Franklin', 'Nashville', 'Brentwood'])
+
+        if (!curatedError && curatedUtilities && curatedUtilities.length > 0) {
+          const relevantUtilities = curatedUtilities.filter(utility => {
+            const utilityName = utility.utility_name.toLowerCase()
+            return utilityName.includes('milcrofton') ||
+                   utilityName.includes('franklin') ||
+                   utilityName.includes('h.b.') ||
+                   utilityName.includes('hb') ||
+                   utilityName.includes('hbts') ||
+                   (utilityName.includes('metro') && utilityName.includes('water'))
+          })
+          utilities.push(...relevantUtilities)
+        }
+      }
+
+      // Step 2: Also try to find municipal systems in the same city (for additional options)
+      const { data: cityInfo, error: cityError } = await supabase
           .from('water_systems')
           .select('city_name, state_code')
           .eq('zip_code', zip)
@@ -168,13 +301,118 @@ export default function WaterQualityCalculatorNew() {
             utilities.push(...anySystems)
           }
         }
+
+      // Enhanced deduplication with name similarity and data source preference
+      const deduplicateUtilities = (utilities: any[]) => {
+        // Helper function to normalize utility names for comparison
+        const normalizeUtilityName = (name: string) => {
+          return name.toLowerCase()
+            .replace(/[&\.\-\s]+/g, ' ') // Replace &, ., -, spaces with single space
+            .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+            .replace(/\bdept\b/g, 'department') // dept -> department
+            .replace(/\bu\.?d\.?\b/g, 'utility district') // u.d. -> utility district
+            .replace(/\bh\.?b\.?\s*&?\s*t\.?s\.?\b/g, 'hb ts') // H.B.&T.S. -> hb ts
+            .trim()
+        }
+
+        // Helper function to check if two utility names represent the same entity
+        const areUtilitiesSimilar = (name1: string, name2: string) => {
+          const norm1 = normalizeUtilityName(name1)
+          const norm2 = normalizeUtilityName(name2)
+
+          // Exact match after normalization
+          if (norm1 === norm2) return true
+
+          // Check if one name contains the other (for abbreviations)
+          if (norm1.includes(norm2) || norm2.includes(norm1)) return true
+
+          // Special case for Franklin Water variants
+          if ((norm1.includes('franklin') && norm1.includes('water')) &&
+              (norm2.includes('franklin') && norm2.includes('water'))) return true
+
+          // Special case for H.B.&T.S. variants
+          if (norm1.includes('hb ts') && norm2.includes('hb ts')) return true
+
+          return false
+        }
+
+        const deduplicatedUtilities = []
+        const processedGroups = new Set()
+
+        for (let i = 0; i < utilities.length; i++) {
+          if (processedGroups.has(i)) continue
+
+          const currentUtility = utilities[i]
+          const currentName = currentUtility.utility_name || currentUtility.pws_name || ''
+
+          // Find all similar utilities
+          const similarUtilities = [currentUtility]
+          const similarIndices = [i]
+
+          for (let j = i + 1; j < utilities.length; j++) {
+            if (processedGroups.has(j)) continue
+
+            const otherUtility = utilities[j]
+            const otherName = otherUtility.utility_name || otherUtility.pws_name || ''
+
+            if (areUtilitiesSimilar(currentName, otherName)) {
+              similarUtilities.push(otherUtility)
+              similarIndices.push(j)
+            }
+          }
+
+          // Mark all similar utilities as processed
+          similarIndices.forEach(idx => processedGroups.add(idx))
+
+          // Choose the best representative from similar utilities
+          let bestUtility = similarUtilities[0]
+
+          // Prefer curated utilities (have 'id' field) over EPA data
+          const curatedUtilities = similarUtilities.filter(u => 'id' in u)
+          if (curatedUtilities.length > 0) {
+            bestUtility = curatedUtilities[0]
+          }
+
+          // Among curated utilities, prefer the one with the cleanest name
+          if (curatedUtilities.length > 1) {
+            bestUtility = curatedUtilities.find(u =>
+              u.utility_name && !u.utility_name.includes('&') && !u.utility_name.toUpperCase() === u.utility_name
+            ) || curatedUtilities[0]
+          }
+
+          deduplicatedUtilities.push(bestUtility)
+        }
+
+        return deduplicatedUtilities
       }
 
-      // Remove duplicates and filter out inactive utilities
-      const uniqueUtilities = utilities.filter((utility, index, self) => 
-        index === self.findIndex(u => u.pwsid === utility.pwsid) &&
-        utility.pws_activity_code === 'A' // Only active utilities
-      )
+      // Apply minimal filtering - only check for active utilities and basic validation
+      const activeUtilities = utilities.filter((utility, index, self) => {
+        // Only active utilities
+        const isActive = 'pws_activity_code' in utility ? utility.pws_activity_code === 'A' : true
+        if (!isActive) return false
+
+        // Ensure minimum population served for meaningful coverage
+        const population = 'population_served' in utility ?
+          utility.population_served : parseInt(utility.population_served_count || '0')
+        if (population < 100) return false
+
+        // Exclude clearly wrong utilities (e.g., Columbia Power & Water in Nashville)
+        const utilityName = (utility.utility_name || utility.pws_name || '').toLowerCase()
+
+        // Only block obviously wrong geographic matches
+        if (utilityName.includes('columbia') && utilityName.includes('power') &&
+            ['37203', '37215', '37204', '37205', '37206', '37207', '37208', '37209',
+             '37210', '37211', '37212', '37213', '37214', '37216', '37217', '37218',
+             '37219', '37220', '37221', '37228', '37240'].includes(zip)) {
+          return false // Columbia Power & Water should not serve Nashville
+        }
+
+        return true
+      })
+
+      // Apply enhanced deduplication
+      const uniqueUtilities = deduplicateUtilities(activeUtilities)
 
       uniqueUtilities.sort((a, b) => {
         // Prioritize municipal systems
@@ -189,6 +427,17 @@ export default function WaterQualityCalculatorNew() {
         const bPop = 'population_served' in b ? b.population_served : parseInt(b.population_served_count || '0')
         return bPop - aPop
       })
+
+      // Debug logging for zip codes with known issues
+      if (['37067', '37215', '37203', '37075'].includes(zip)) {
+        console.log(`🔍 DEBUG ${zip} - Deduplication process:`)
+        console.log(`  Before filtering: ${utilities.length} utilities`)
+        console.log(`  After active filtering: ${activeUtilities.length} utilities`)
+        console.log(`  After deduplication: ${uniqueUtilities.length} utilities`)
+        uniqueUtilities.forEach((u, i) => {
+          console.log(`  ${i + 1}. ${u.utility_name || u.pws_name} (${u.pwsid}) [${('id' in u) ? 'curated' : 'EPA'}]`)
+        })
+      }
 
       setAvailableUtilities(uniqueUtilities)
       if (uniqueUtilities.length > 0) {
@@ -342,31 +591,37 @@ export default function WaterQualityCalculatorNew() {
     }
   }
 
-  const calculateChlorineConsumption = (utility: WaterUtility | WaterSystem, glasses: number, chlorineData: any) => {
+  const calculateChlorineConsumption = (utility: WaterUtility | WaterSystem, glasses: number, chlorineData: any, showerMins: number) => {
     // Only calculate if we have real chlorine data
     if (!chlorineData || !chlorineData.averageChlorine) {
       throw new Error('No chlorine data available for this utility')
     }
-    
+
     const chlorineLevel = chlorineData.averageChlorine;
-    
-    // CONSTANTS
+
+    // DRINKING WATER CONSTANTS
     const ozToLiters = 0.0295735;
     const daysPerYear = 365;
     const bleachConcentration = 52500; // mg chlorine per liter of bleach
     const litersPerCup = 0.236588;
-    
-    // CALCULATION
+
+    // DRINKING WATER CALCULATION
     const dailyWaterLiters = glasses * 16 * ozToLiters;
     const dailyChlorineMg = dailyWaterLiters * chlorineLevel;
     const yearlyChlorineMg = dailyChlorineMg * daysPerYear;
     const bleachLiters = yearlyChlorineMg / bleachConcentration;
     const bleachCups = bleachLiters / litersPerCup;
-    
+
     // Additional calculations for display
     const chlorinePerGlass = dailyChlorineMg / glasses; // mg per glass
     const chlorinePerYear = yearlyChlorineMg; // mg per year
-    
+
+    // SHOWER CHLORINE CALCULATION
+    const showerChlorineData = calculateShowerChlorineAbsorption(showerMins, chlorineLevel);
+
+    // TOTAL DAILY EXPOSURE CALCULATION
+    const totalExposure = calculateTotalDailyExposure(dailyChlorineMg, showerChlorineData.totalChlorineAbsorbed);
+
     return {
       glassesPerDay: glasses,
       chlorinePerGlass: chlorinePerGlass,
@@ -375,7 +630,11 @@ export default function WaterQualityCalculatorNew() {
       utility: utility,
       zipCode: zipCode,
       chlorinePPM: chlorineLevel,
-      chlorineData: chlorineData
+      chlorineData: chlorineData,
+      showerMinutes: showerMins,
+      showerChlorineData: showerChlorineData,
+      totalDailyChlorineExposure: totalExposure.totalDailyChlorine,
+      totalDailyBleachEquivalent: totalExposure.totalDailyBleachEquivalent
     }
   }
 
@@ -394,14 +653,9 @@ export default function WaterQualityCalculatorNew() {
       const city = selectedUtility.city_name || selectedUtility.city
       const state = selectedUtility.state_code || selectedUtility.state
       
-      // Move to loading step
-      setCurrentStep('loading')
-      setIsResearching(true)
-      setResearchProgress('🔍 Getting chlorine data...')
-      
       try {
         console.log('🔧 Starting chlorine data lookup for:', { pwsid, utilityName, city, state })
-        
+
         // First check if we have existing data
         const { data: existingData, error: checkError } = await supabase
           .from('chlorine_data')
@@ -412,8 +666,8 @@ export default function WaterQualityCalculatorNew() {
         let chlorineData = null
 
         if (!checkError && existingData) {
-          console.log('🔧 Found existing data:', existingData)
-          setResearchProgress('✅ Found chlorine data!')
+          console.log('🔧 Found existing data, skipping loading screen:', existingData)
+          // Data exists, skip loading screen and go directly to next step
           chlorineData = {
             averageChlorine: parseFloat(existingData.average_chlorine_ppm),
             minChlorine: parseFloat(existingData.min_chlorine_ppm),
@@ -425,9 +679,12 @@ export default function WaterQualityCalculatorNew() {
             fromDatabase: true
           }
         } else {
-          // No existing data, do research
-          console.log('🔧 No existing data, starting research...')
+          // No existing data, show loading screen and do research
+          console.log('🔧 No existing data, showing loading screen and starting research...')
+          setCurrentStep('loading')
+          setIsResearching(true)
           setResearchProgress('🔍 Researching chlorine data from CCR reports...')
+
           chlorineData = await fetchChlorineData(pwsid, utilityName, city, state)
         }
         
@@ -505,7 +762,7 @@ export default function WaterQualityCalculatorNew() {
         if (chlorineData) {
           console.log('🔧 Calculating results with:', { selectedUtility, dailyGlasses, chlorineData })
           try {
-            const calculation = calculateChlorineConsumption(selectedUtility, dailyGlasses, chlorineData)
+            const calculation = calculateChlorineConsumption(selectedUtility, dailyGlasses, chlorineData, showerMinutes)
             console.log('🔧 Calculation result:', calculation)
             setResult(calculation)
             setError('')
@@ -532,184 +789,165 @@ export default function WaterQualityCalculatorNew() {
     }
   }
 
-  const handleZipCodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleZipCodeSubmit = () => {
     if (zipCode.trim()) {
       fetchUtilitiesByZipCode(zipCode.trim())
     }
   }
 
+  const handleNewCalculation = () => {
+    setCurrentStep('zip')
+    setZipCode('')
+    setAvailableUtilities([])
+    setSelectedUtility(null)
+    setResult(null)
+    setUtilityChlorineData(null)
+    setError('')
+    setDailyGlasses(8)
+    setShowerMinutes(10)
+  }
+
+  const getErrorSuggestions = () => {
+    if (error.includes('zip code')) {
+      return [
+        'Make sure you entered a valid 5-digit zip code',
+        'Try a nearby zip code if yours doesn\'t work',
+        'Check if you\'re in a supported area'
+      ]
+    }
+    if (error.includes('utilities')) {
+      return [
+        'Try expanding your search to nearby areas',
+        'Contact us if you believe this is an error',
+        'Check with your local water department'
+      ]
+    }
+    return [
+      'Check your internet connection',
+      'Try refreshing the page',
+      'Contact support if the problem persists'
+    ]
+  }
+
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
-      <div className="bg-white rounded-xl shadow-2xl p-6 sm:p-8 lg:p-12">
-        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-8 sm:mb-12 text-center">
-          💧 Water Quality Calculator
-        </h1>
-        
-        <div className="space-y-8">
+    <div className="min-h-screen wf-gradient-bg p-4 sm:p-6 lg:p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="wf-gradient-card wf-card">
+          <h1 className="wf-h1 wf-text-gradient mb-8 sm:mb-12 text-center">
+            HOW MUCH CHLORINE AM I REALLY DRINKING?
+          </h1>
+          <p className="wf-body-large text-center mb-8 max-w-3xl mx-auto">
+            Discover how much chlorine you consume from your tap water on a yearly basis. Our free calculator uses local water data
+            to give you personalized results. <strong>No pressure, no gimmicks, no fine print or obligation.</strong>
+          </p>
+
+          {/* Progress Indicator */}
+          <ProgressIndicator currentStep={currentStep} />
+
+          <div className="space-y-8">
           {/* Step 1: Zip Code Input */}
           {currentStep === 'zip' && (
-            <div className="bg-gray-50 rounded-lg p-6">
-            <label htmlFor="zipCode" className="block text-lg font-semibold text-gray-800 mb-3">
-              📍 Enter Your Zip Code
-            </label>
-            <form onSubmit={handleZipCodeSubmit} className="flex flex-col sm:flex-row gap-3">
-              <input
-                type="text"
-                id="zipCode"
+            <>
+              <ZipCodeInput
                 value={zipCode}
-                onChange={(e) => setZipCode(e.target.value)}
-                placeholder="e.g., 37067"
-                className="flex-1 px-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                maxLength={5}
+                onChange={setZipCode}
+                onSubmit={handleZipCodeSubmit}
+                loading={loading}
+                error={error}
               />
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-3 bg-blue-600 text-white text-lg font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-              >
-                {loading ? '🔍 Searching...' : '🔍 Find Utilities'}
-              </button>
-            </form>
-            </div>
+              {/* Trust Line Below Zip Code */}
+              <div className="text-center max-w-2xl mx-auto">
+                <p className="text-sm text-gray-600">
+                  Powered by <strong>EPA data</strong> and <strong>local water reports</strong> •
+                  No personal information required
+                </p>
+              </div>
+            </>
           )}
 
           {/* Step 2: Utility Selection */}
           {currentStep === 'utility' && availableUtilities.length > 0 && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <label htmlFor="utility" className="block text-lg font-semibold text-gray-800 mb-3">
-                🏢 Select Your Water Utility
-              </label>
-              <select
-                id="utility"
-                value={selectedUtility?.pwsid || ''}
-                onChange={(e) => handleUtilityChange(e.target.value)}
-                className="w-full px-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {availableUtilities.map((utility) => (
-                  <option key={utility.pwsid} value={utility.pwsid}>
-                    {('utility_name' in utility ? utility.utility_name : utility.pws_name)} 
-                    {' - '}
-                    {('city' in utility ? utility.city : utility.city_name)}, 
-                    {('state' in utility ? utility.state : utility.state_code)}
-                    {' - '}
-                    {('population_served' in utility ? utility.population_served : utility.population_served_count)} served
-                    {' - '}
-                    {('owner_type_code' in utility && ['L', 'M'].includes(utility.owner_type_code)) ? 'Municipal' : 'Private'}
-                  </option>
-                ))}
-              </select>
-              <div className="mt-4">
-                <button
-                  onClick={() => setCurrentStep('glasses')}
-                  disabled={!selectedUtility}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
+            <UtilitySelector
+              utilities={availableUtilities}
+              selectedUtility={selectedUtility}
+              onSelect={handleUtilityChange}
+              onContinue={handleContinue}
+              loading={loading}
+            />
           )}
 
           {/* Step 3: Daily Glasses Input */}
           {currentStep === 'glasses' && selectedUtility && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <label htmlFor="glasses" className="block text-lg font-semibold text-gray-800 mb-3">
-                🥤 How many 16oz glasses of water do you drink per day?
-              </label>
-              <input
-                type="number"
-                id="glasses"
-                value={dailyGlasses}
-                onChange={(e) => setDailyGlasses(parseInt(e.target.value) || 0)}
-                min="1"
-                max="50"
-                className="w-full px-4 py-3 text-lg text-gray-900 bg-white border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            <DailyGlassesInput
+              value={dailyGlasses}
+              onChange={setDailyGlasses}
+              onCalculate={handleGlassesNext}
+              loading={loading}
+              utilityName={('utility_name' in selectedUtility ? selectedUtility.utility_name : selectedUtility.pws_name) || 'Unknown Utility'}
+            />
+          )}
+
+          {/* Step 4: Shower Duration Input */}
+          {currentStep === 'shower' && selectedUtility && (
+            <div className="space-y-6">
+              <ShowerDurationInput
+                onDurationSelected={handleShowerSelected}
+                initialDuration={showerMinutes}
               />
-              <div className="mt-4">
+              <div className="text-center">
                 <button
                   onClick={handleCalculateResults}
-                  disabled={dailyGlasses <= 0}
-                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  disabled={loading}
+                  className="wf-button-primary w-full py-4 px-8 text-lg disabled:opacity-50"
                 >
-                  Calculate My Chlorine Intake
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      CALCULATING...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="text-lg">🧪</span>
+                      CALCULATE MY TOTAL CHLORINE EXPOSURE
+                    </span>
+                  )}
                 </button>
               </div>
             </div>
           )}
 
+          {/* Loading Step */}
+          {currentStep === 'loading' && (
+            <div className="flex justify-center">
+              <LoadingSpinner
+                message="Getting chlorine data and calculating results..."
+                size="large"
+                showProgress
+              />
+            </div>
+          )}
 
           {/* Step 4: Results Display */}
           {currentStep === 'results' && result && (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-6 sm:p-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-blue-900 mb-6 text-center">
-                📊 Your Results
-              </h2>
-              
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Water Utility:</span>
-                  <span className="text-lg text-gray-900 font-medium">{'utility_name' in result.utility ? result.utility.utility_name : result.utility.pws_name}</span>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Location:</span>
-                  <span className="text-lg text-gray-900 font-medium">{'city' in result.utility ? result.utility.city : result.utility.city_name}, {'state' in result.utility ? result.utility.state : result.utility.state_code}</span>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Population Served:</span>
-                  <span className="text-lg text-gray-900 font-medium">{'population_served' in result.utility ? result.utility.population_served.toLocaleString() : result.utility.population_served_count}</span>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Daily Glasses (16oz):</span>
-                  <span className="text-lg text-gray-900 font-medium">{result.glassesPerDay}</span>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Chlorine Level:</span>
-                  <div className="text-right">
-                    <span className="text-lg text-gray-900 font-medium">{result.chlorinePPM.toFixed(2)} PPM</span>
-                    {result.chlorineData ? (
-                      <p className="text-sm text-green-600">✓ From actual water quality data</p>
-                    ) : (
-                      <p className="text-sm text-yellow-600">⚠ Estimated (no data found)</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Chlorine per Glass:</span>
-                  <span className="text-lg text-gray-900 font-medium">{result.chlorinePerGlass.toFixed(3)} mg</span>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row sm:justify-between bg-white rounded-lg p-4 shadow-sm">
-                  <span className="font-semibold text-lg text-gray-700">Annual Chlorine Intake:</span>
-                  <span className="text-lg text-gray-900 font-medium">{result.chlorinePerYear.toFixed(1)} mg</span>
-                </div>
-                
-                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-300 rounded-xl p-6 mt-6">
-                  <p className="text-yellow-900 font-bold text-xl sm:text-2xl text-center mb-3">
-                    🧪 You drink the equivalent of <span className="text-red-600">{result.bleachEquivalent.toFixed(2)} cups</span> of household bleach per year!
-                  </p>
-                  <p className="text-yellow-800 text-lg text-center">
-                    That's about <span className="font-bold">{Math.round(result.bleachEquivalent * 16)} tablespoons</span> or <span className="font-bold">{Math.round(result.bleachEquivalent * 48)} teaspoons</span> of bleach annually.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <ResultsDisplay
+              result={result}
+              onNewCalculation={handleNewCalculation}
+            />
           )}
 
           {/* Error Display */}
           {error && (
-            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6">
-              <p className="text-red-800 text-lg font-medium">⚠️ {error}</p>
-            </div>
+            <ErrorDisplay
+              error={error}
+              type="error"
+              onRetry={() => setError('')}
+              suggestions={getErrorSuggestions()}
+            />
           )}
+          </div>
         </div>
       </div>
-      
+
       {/* Research Loading Screen */}
       <ResearchLoadingScreen 
         progress={researchProgress} 

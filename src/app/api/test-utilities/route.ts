@@ -56,13 +56,155 @@ export async function GET(request: NextRequest) {
           .eq('zip_code', zipCode)
           .gte('population_served_count', '1000')
           .in('pws_type_code', ['CWS'])
+          .eq('pws_activity_code', 'A') // Only active utilities
           .limit(5)
 
         if (directError) throw directError
-        if (directSystems) utilities.push(...directSystems)
+        if (directSystems) {
+          // Apply geographic filtering to direct systems
+          const zipCodeUtilityMap: Record<string, string[]> = {
+            '37203': ['metro water services'],
+            '37215': ['metro water services'],
+            '37067': ['milcrofton', 'franklin', 'h.b.', 'hbts'],
+            '37064': ['franklin', 'h.b.', 'hbts', 'milcrofton'],
+            '37027': ['brentwood', 'harpeth valley', 'mallory valley'],
+          }
+
+          const allowedUtilities = zipCodeUtilityMap[zipCode]
+          if (allowedUtilities) {
+            const filteredSystems = directSystems.filter(system => {
+              const systemName = system.pws_name.toLowerCase()
+              // Filter out utilities that clearly don't serve this area
+              if (systemName.includes('columbia power') && !allowedUtilities.includes('columbia')) {
+                return false
+              }
+              return true
+            })
+            utilities.push(...filteredSystems)
+          } else {
+            utilities.push(...directSystems)
+          }
+        }
+
+        // Geographic-specific utility lookup based on zip code location
+        const zipCodeUtilityMap: Record<string, string[]> = {
+          // Nashville (Davidson County) - Metro Water Services only
+          '37203': ['metro water services'],
+          '37215': ['metro water services'],
+          '37204': ['metro water services'],
+          '37205': ['metro water services'],
+          '37206': ['metro water services'],
+          '37207': ['metro water services'],
+          '37208': ['metro water services'],
+          '37209': ['metro water services'],
+          '37210': ['metro water services'],
+          '37211': ['metro water services'],
+          '37212': ['metro water services'],
+          '37213': ['metro water services'],
+          '37214': ['metro water services'],
+          '37216': ['metro water services'],
+          '37217': ['metro water services'],
+          '37218': ['metro water services'],
+          '37219': ['metro water services'],
+          '37220': ['metro water services'],
+          '37221': ['metro water services'],
+          '37228': ['metro water services'],
+          '37240': ['metro water services'],
+
+          // Franklin area (Williamson County)
+          '37067': ['milcrofton', 'franklin', 'h.b.', 'hbts'],
+          '37064': ['franklin', 'h.b.', 'hbts', 'milcrofton'],
+          '37069': ['franklin', 'h.b.', 'hbts'], // Franklin
+
+          // Brentwood (Williamson County)
+          '37027': ['brentwood', 'harpeth valley', 'mallory valley'],
+
+          // Thompson's Station (Williamson County)
+          '37179': ['h.b.', 'hbts'], // H.B.&T.S. serves Thompson's Station
+
+          // Rutherford County
+          '37014': ['consolidated utility district', 'rutherford'], // Antioch/CUDRC
+
+          // Other Williamson County areas
+          '37135': ['nolensville', 'college grove'], // Nolensville-College Grove U.D.
+          '37046': ['nolensville', 'college grove'], // College Grove/Nolensville area
+        }
+
+        const allowedUtilities = zipCodeUtilityMap[zipCode]
+
+        if (allowedUtilities) {
+          // Get utilities from curated table based on geographic mapping
+          const { data: curatedUtilities, error: curatedError } = await supabase
+            .from('water_utilities')
+            .select('*')
+            .eq('is_active', true)
+
+          if (!curatedError && curatedUtilities) {
+            const relevantUtilities = curatedUtilities.filter(utility => {
+              const utilityName = utility.utility_name.toLowerCase()
+              return allowedUtilities.some(allowed =>
+                utilityName.includes(allowed) ||
+                (allowed === 'hbts' && (utilityName.includes('h.b.') || utilityName.includes('hb')))
+              )
+            })
+            utilities.push(...relevantUtilities)
+          }
+        }
       }
 
-      results.utilities = utilities
+      // Final filtering and deduplication
+      const finalFiltered = utilities.filter((utility, index, self) => {
+        // Remove duplicates by PWSID
+        const isDuplicate = index !== self.findIndex(u => u.pwsid === utility.pwsid)
+        if (isDuplicate) {
+          // If duplicate, prefer the one from water_utilities table (has 'id' field)
+          const hasId = 'id' in utility
+          const otherHasId = self.find(u => u.pwsid === utility.pwsid && 'id' in u)
+          return hasId && !otherHasId
+        }
+
+        // Apply final geographic filtering
+        const utilityName = utility.utility_name?.toLowerCase() || utility.pws_name?.toLowerCase() || ''
+
+        // For Nashville zip codes, only allow Metro Water Services
+        if (['37203', '37215'].includes(zipCode)) {
+          return utilityName.includes('metro water services') && !utilityName.includes('columbia')
+        }
+
+        // For Franklin area zip codes, only allow Franklin area utilities
+        if (['37067', '37064', '37069'].includes(zipCode)) {
+          return utilityName.includes('milcrofton') ||
+                 utilityName.includes('franklin') ||
+                 utilityName.includes('h.b.') ||
+                 utilityName.includes('hbts')
+        }
+
+        // For Thompson's Station, only allow H.B.&T.S.
+        if (zipCode === '37179') {
+          return utilityName.includes('h.b.') || utilityName.includes('hbts')
+        }
+
+        // For Nolensville/College Grove areas
+        if (['37135', '37046'].includes(zipCode)) {
+          return utilityName.includes('nolensville') || utilityName.includes('college grove')
+        }
+
+        // For Rutherford County (Antioch area)
+        if (zipCode === '37014') {
+          return utilityName.includes('consolidated') || utilityName.includes('rutherford')
+        }
+
+        // For Brentwood, only allow Brentwood area utilities
+        if (zipCode === '37027') {
+          return utilityName.includes('brentwood') ||
+                 utilityName.includes('harpeth valley') ||
+                 utilityName.includes('mallory valley')
+        }
+
+        return true
+      })
+
+      results.utilities = finalFiltered
 
     } catch (error) {
       results.errors.push(error instanceof Error ? error.message : 'Unknown error')

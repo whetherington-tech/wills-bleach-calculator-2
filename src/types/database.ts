@@ -44,6 +44,18 @@ export interface LcrSample {
   [key: string]: any
 }
 
+export interface ShowerChlorineData {
+  totalShowerWaterLiters: number
+  totalChlorineInShower: number
+  chlorineVaporized: number
+  chlorineInhaled: number
+  chlorineAbsorbedSkin: number
+  totalChlorineAbsorbed: number
+  dailyBleachEquivalent: number
+  weeklyBleachEquivalent: number
+  yearlyBleachEquivalent: number
+}
+
 export interface CalculationResult {
   glassesPerDay: number
   chlorinePerGlass: number
@@ -53,4 +65,8 @@ export interface CalculationResult {
   zipCode: string
   chlorinePPM: number
   chlorineData: any
+  showerMinutes?: number
+  showerChlorineData?: ShowerChlorineData
+  totalDailyChlorineExposure?: number
+  totalDailyBleachEquivalent?: number
 }

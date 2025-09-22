@@ -12,6 +12,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Note: VTF Justina HUM and DIN Next LT Arabic would be loaded from font files
+// For now using system fonts that approximate the brand typography
+
 export const metadata: Metadata = {
   title: "Water Quality Calculator | Will's Friends",
   description: "Calculate how much chlorine you're drinking and discover better water quality solutions for your family.",

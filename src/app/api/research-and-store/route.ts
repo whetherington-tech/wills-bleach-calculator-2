@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
+import { validateChlorineData, validateGeographicConsistency, shouldReplaceExistingData } from '@/utils/chlorineValidation'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,25 +12,35 @@ export async function POST(request: NextRequest) {
     const state = searchParams.get('state') || 'Tennessee'
 
     if (action === 'research_single' && pwsid && utilityName) {
-      // Check if we already have recent data for this utility
+      // Check if we already have recent data for this utility (within 6 months)
+      const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       const { data: existingData, error: checkError } = await supabase
         .from('chlorine_data')
         .select('*')
         .eq('pwsid', pwsid)
-        .gte('last_updated', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]) // Within last year
+        .gte('last_updated', sixMonthsAgo)
         .single()
 
-      if (!checkError && existingData) {
+      // Only return existing data if it's not manual entry AND is within 6 months
+      if (!checkError && existingData &&
+          existingData.data_source !== 'Manual User Entry' &&
+          new Date(existingData.last_updated) > new Date(sixMonthsAgo)) {
         return NextResponse.json({
           success: true,
-          message: 'Recent data already exists',
+          message: 'Recent CCR data already exists',
           data: existingData,
           fromCache: true
         })
       }
 
-              // Research new data using Firecrawl - be more specific to avoid wrong state
-              const searchQuery = `${utilityName} ${city || ''} ${state} Consumer Confidence Report CCR water quality chlorine sodium hypochlorite disinfectant residual levels -Maine -ME`
+              // Enhanced geographic search query to prevent cross-state contamination
+              const stateExclusions = [
+                '-Maine', '-ME', '-Michigan', '-MI', '-Ohio', '-OH',
+                '-California', '-CA', '-Florida', '-FL', '-Texas', '-TX',
+                '-New', '-York', '-NY', '-Illinois', '-IL'
+              ].join(' ');
+
+              const searchQuery = `"${utilityName}" "${city || ''}" "${state}" site:${state?.toLowerCase()}.gov OR site:${city?.toLowerCase()}.gov Consumer Confidence Report CCR water quality chlorine ${stateExclusions}`
       
       const firecrawlResponse = await fetch('https://api.firecrawl.dev/v1/search', {
         method: 'POST',
@@ -232,7 +243,74 @@ export async function POST(request: NextRequest) {
       }
 
       if (chlorineData) {
-        // Store the data in Supabase
+        // Validate chlorine data before storing
+        const validation = validateChlorineData({
+          averageChlorine: chlorineData.averageChlorine,
+          minChlorine: chlorineData.minChlorine,
+          maxChlorine: chlorineData.maxChlorine,
+          sampleCount: chlorineData.sampleCount,
+          sourceUrl: sourceUrl,
+          utilityName: utilityName,
+          city: city,
+          state: state,
+          pwsid: pwsid
+        });
+
+        console.log(`🔧 Validation result for ${utilityName}:`, validation);
+
+        if (!validation.isValid) {
+          console.error(`❌ Invalid chlorine data for ${utilityName}:`, validation.errors);
+          return NextResponse.json({
+            success: false,
+            message: 'Extracted chlorine data failed validation',
+            errors: validation.errors,
+            warnings: validation.warnings,
+            extractedData: chlorineData
+          });
+        }
+
+        // Check geographic consistency
+        const geoValidation = validateGeographicConsistency(pwsid, utilityName, city, state, sourceUrl);
+        console.log(`🔧 Geographic validation for ${utilityName}:`, geoValidation);
+
+        if (!geoValidation.isConsistent) {
+          console.warn(`⚠️ Geographic inconsistency for ${utilityName}:`, geoValidation.warnings);
+          return NextResponse.json({
+            success: false,
+            message: 'Geographic inconsistency detected - possible cross-state contamination',
+            warnings: geoValidation.warnings,
+            confidence: geoValidation.confidence,
+            extractedData: chlorineData
+          });
+        }
+
+        // Check if we should replace existing data
+        const { data: existingData } = await supabase
+          .from('chlorine_data')
+          .select('*')
+          .eq('pwsid', pwsid)
+          .single();
+
+        if (existingData) {
+          const replaceDecision = shouldReplaceExistingData(
+            { ...existingData, confidence: validation.confidence },
+            { ...chlorineData, data_source: 'Consumer Confidence Report', confidence: validation.confidence }
+          );
+
+          if (!replaceDecision.shouldReplace) {
+            console.log(`ℹ️ Preserving existing data for ${utilityName}: ${replaceDecision.reason}`);
+            return NextResponse.json({
+              success: true,
+              message: 'Existing data preserved',
+              reason: replaceDecision.reason,
+              existingData: existingData,
+              extractedData: chlorineData,
+              fromCache: true
+            });
+          }
+        }
+
+        // Store validated data
         const { data: storedData, error: storeError } = await supabase
           .from('chlorine_data')
           .upsert({
@@ -244,7 +322,7 @@ export async function POST(request: NextRequest) {
             sample_count: chlorineData.sampleCount,
             last_updated: new Date().toISOString().split('T')[0],
             data_source: 'Consumer Confidence Report',
-            notes: `Extracted from ${chlorineData.reportTitle} via Firecrawl API`,
+            notes: `Extracted from ${chlorineData.reportTitle} via Firecrawl API. Validation: ${validation.confidence}% confidence, Quality: ${validation.qualityScore}%. Geographic: ${geoValidation.confidence}% confidence.`,
             source_url: sourceUrl
           }, { onConflict: 'pwsid' })
           .select()
