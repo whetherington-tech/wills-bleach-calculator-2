@@ -1,12 +1,13 @@
 {
-  "name": "water-quality-calculator",
-  "version": "0.1.0",
+  "name": "wills-bleach-calculator",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "preview": "node preview.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.3",
+    "puppeteer": "^23.11.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

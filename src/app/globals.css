@@ -41,6 +41,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'TheMacksen';
+  src: url('./fonts/TheMacksen-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* Official Will's Friends Brand Colors */
   --logo-red: #DD0031;
@@ -117,6 +125,231 @@ body {
   background-clip: text;
 }
 
+/* Advanced Animated Gradient Text Classes */
+.wf-text-gradient-animated {
+  /* Fallback color for accessibility */
+  color: var(--yeti-blue-headline);
+  background: linear-gradient(45deg, var(--yeti-blue-headline), var(--yeti-blue-logo), var(--subtitles), var(--yeti-blue-headline));
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease-in-out infinite;
+
+  /* Performance optimizations */
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+.wf-text-gradient-warning {
+  /* Fallback color for accessibility */
+  color: var(--logo-red);
+  background: linear-gradient(45deg, var(--logo-red), #ff6b35, #f7931e, var(--logo-red));
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease-in-out infinite;
+
+  /* Performance optimizations */
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+.wf-text-gradient-success {
+  /* Fallback color for accessibility */
+  color: #059669;
+  background: linear-gradient(45deg, #10b981, #059669, #047857, #10b981);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease-in-out infinite;
+
+  /* Performance optimizations */
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+.wf-text-gradient-premium {
+  /* Fallback color for accessibility */
+  color: #8b5cf6;
+  background: linear-gradient(45deg, #8b5cf6, #a855f7, #c084fc, #8b5cf6);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 5s ease-in-out infinite;
+
+  /* Performance optimizations */
+  will-change: background-position;
+  transform: translateZ(0);
+}
+
+.wf-text-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 2s infinite;
+  position: relative;
+}
+
+.wf-text-pulse {
+  animation: textPulse 2s ease-in-out infinite;
+}
+
+.wf-text-glow-red {
+  color: var(--logo-red);
+  text-shadow: 0 0 10px rgba(221, 0, 49, 0.3), 0 0 20px rgba(221, 0, 49, 0.2), 0 0 30px rgba(221, 0, 49, 0.1);
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+.wf-text-glow-blue {
+  color: var(--yeti-blue-headline);
+  text-shadow: 0 0 10px rgba(1, 43, 69, 0.3), 0 0 20px rgba(1, 43, 69, 0.2), 0 0 30px rgba(1, 43, 69, 0.1);
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+.wf-text-button-match {
+  background: linear-gradient(45deg, var(--logo-red), #ff4757, var(--logo-red));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease-in-out infinite;
+}
+
+/* Keyframe Animations */
+@keyframes gradientShift {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes textPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    text-shadow: 0 0 8px rgba(221, 0, 49, 0.25), 0 0 16px rgba(221, 0, 49, 0.15);
+  }
+  50% {
+    text-shadow: 0 0 12px rgba(221, 0, 49, 0.4), 0 0 20px rgba(221, 0, 49, 0.25);
+  }
+}
+
+/* Mobile optimizations - reduce animations on smaller screens */
+@media (max-width: 768px) {
+  .wf-text-gradient-animated,
+  .wf-text-gradient-warning,
+  .wf-text-gradient-success,
+  .wf-text-gradient-premium,
+  .wf-text-button-match {
+    /* Reduce animation frequency on mobile for better performance */
+    animation-duration: 6s;
+    animation-timing-function: ease-in-out;
+  }
+
+  /* Simplify complex gradients on mobile for performance */
+  .wf-text-gradient-animated {
+    background: linear-gradient(45deg, var(--yeti-blue-headline), var(--yeti-blue-logo));
+    background-size: 200% 200%;
+  }
+
+  .wf-text-gradient-warning {
+    background: linear-gradient(45deg, var(--logo-red), #ff6b35);
+    background-size: 200% 200%;
+  }
+
+  .wf-text-gradient-success {
+    background: linear-gradient(45deg, #10b981, #059669);
+    background-size: 200% 200%;
+  }
+
+  .wf-text-gradient-premium {
+    background: linear-gradient(45deg, #8b5cf6, #a855f7);
+    background-size: 200% 200%;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .wf-text-gradient-animated,
+  .wf-text-gradient-warning,
+  .wf-text-gradient-success,
+  .wf-text-gradient-premium,
+  .wf-text-shimmer,
+  .wf-text-pulse,
+  .wf-text-glow-red,
+  .wf-text-glow-blue,
+  .wf-text-button-match {
+    animation: none;
+  }
+
+  /* Provide high contrast fallbacks for accessibility */
+  .wf-text-gradient-animated {
+    color: var(--yeti-blue-headline);
+    background: none;
+    -webkit-text-fill-color: unset;
+  }
+
+  .wf-text-gradient-warning {
+    color: var(--logo-red);
+    background: none;
+    -webkit-text-fill-color: unset;
+  }
+
+  .wf-text-gradient-success {
+    color: #059669;
+    background: none;
+    -webkit-text-fill-color: unset;
+  }
+
+  .wf-text-gradient-premium {
+    color: #8b5cf6;
+    background: none;
+    -webkit-text-fill-color: unset;
+  }
+
+  .wf-text-button-match {
+    color: var(--logo-red);
+    background: none;
+    -webkit-text-fill-color: unset;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .wf-text-gradient-animated,
+  .wf-text-gradient-warning,
+  .wf-text-gradient-success,
+  .wf-text-gradient-premium,
+  .wf-text-button-match {
+    background: none;
+    -webkit-text-fill-color: unset;
+    animation: none;
+  }
+}
+
 .wf-button-primary {
   /* Official brand button specifications */
   background-color: var(--logo-red);
@@ -135,7 +368,21 @@ body {
 .wf-button-primary:hover:not(:disabled) {
   filter: brightness(110%);
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(221, 0, 49, 0.3);
+  box-shadow: 0 8px 25px rgba(221, 0, 49, 0.4);
+}
+
+/* Enhanced CTA button styling for prominent placement */
+.wf-button-primary.shadow-lg {
+  box-shadow: 0 10px 25px -5px rgba(221, 0, 49, 0.4), 0 8px 10px -6px rgba(221, 0, 49, 0.1);
+}
+
+.wf-button-primary.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(221, 0, 49, 0.5), 0 20px 25px -5px rgba(221, 0, 49, 0.2);
+}
+
+.wf-button-primary.shadow-2xl:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 30px 60px -12px rgba(221, 0, 49, 0.6), 0 25px 30px -5px rgba(221, 0, 49, 0.3);
 }
 
 .wf-button-primary:disabled {
@@ -262,3 +509,183 @@ body {
   color: var(--yeti-body-text);
   font-weight: 400;
 }
+
+/* Elegant signature style for special taglines */
+.wf-signature {
+  font-family: 'TheMacksen', 'Brush Script MT', cursive;
+  font-size: 24px;
+  line-height: 32px;
+  color: var(--subtitles);
+  font-weight: 400;
+  font-style: italic;
+  text-align: center;
+  margin: 8px 0;
+}
+
+/* VTF Justina HUM numbers for metrics */
+.wf-number {
+  font-family: 'VTF Justina HUM', 'Erbaum Black', 'Helvetica Neue', 'Arial Black', Arial, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Enhanced contrast boxes with premium animations */
+.wf-metric-box {
+  background: linear-gradient(135deg, rgba(241, 245, 249, 0.95) 0%, rgba(248, 250, 252, 0.98) 100%);
+  border: 1px solid rgba(1, 43, 69, 0.15);
+  box-shadow: 0 4px 12px rgba(1, 43, 69, 0.08);
+  transition: all 0.3s ease;
+  opacity: 1;
+}
+
+.wf-metric-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(1, 43, 69, 0.12);
+}
+
+/* Premium number animations */
+.wf-number {
+  font-family: 'VTF Justina HUM', 'Erbaum Black', 'Helvetica Neue', 'Arial Black', Arial, sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--yeti-blue-headline);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Premium glow effect for key metrics */
+.wf-number-glow {
+  position: relative;
+  color: var(--yeti-blue-headline);
+  text-shadow: 0 0 8px rgba(1, 43, 69, 0.2);
+  transition: all 0.3s ease;
+}
+
+.wf-number-glow:hover {
+  text-shadow: 0 0 12px rgba(1, 43, 69, 0.3);
+}
+
+/* Data precision indicator */
+.wf-data-indicator {
+  position: relative;
+}
+
+.wf-data-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  width: 3px;
+  height: 3px;
+  background: var(--subtitles);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  opacity: 0.7;
+}
+
+/* Sophisticated animations */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Removed complex pulsing animations that were causing visual issues */
+
+@keyframes countUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--progress-width, 100%);
+  }
+}
+
+/* Staggered animation delays for sections */
+.wf-metric-box:nth-child(1) { animation-delay: 0.1s; }
+.wf-metric-box:nth-child(2) { animation-delay: 0.2s; }
+.wf-metric-box:nth-child(3) { animation-delay: 0.3s; }
+.wf-metric-box:nth-child(4) { animation-delay: 0.4s; }
+
+/* Premium data visualization effects */
+.wf-progress-bar {
+  position: relative;
+  background: rgba(1, 43, 69, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  height: 6px;
+}
+
+.wf-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--yeti-blue-headline), var(--subtitles));
+  border-radius: 8px;
+  animation: progressFill 2s ease-out forwards;
+  position: relative;
+}
+
+.wf-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transform: translateX(-100%);
+  animation: progressShine 2s ease-out 0.5s;
+}
+
+@keyframes progressShine {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Enterprise-quality micro-interactions */
+.wf-interactive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wf-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 12px 40px rgba(1, 43, 69, 0.15),
+    0 6px 20px rgba(0, 79, 113, 0.1);
+}
+
+/* Micro-interactions for engagement */
+.wf-metric-box:active {
+  transform: translateY(-2px) scale(0.98);
+  transition: all 0.1s ease-in-out;
+}
+
+/* Removed old scroll indicator styles - replaced with sophisticated progress system */
+
+/* Performance optimizations */
+.wf-metric-box,
+.wf-number,
+.wf-scroll-indicator {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+

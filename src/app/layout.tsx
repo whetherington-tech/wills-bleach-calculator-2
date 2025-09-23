@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 // For now using system fonts that approximate the brand typography
 
 export const metadata: Metadata = {
-  title: "Water Quality Calculator | Will's Friends",
-  description: "Calculate how much chlorine you're drinking and discover better water quality solutions for your family.",
+  title: "Will's Bleach Calculator | Will's Friends",
+  description: "Discover how much bleach equivalent you're absorbing from chlorinated tap water every year. Get personalized results and learn about water filtration solutions for your family.",
 };
 
 export default function RootLayout({
@@ -27,6 +27,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        {/* iClosed widget loaded dynamically in ResultsDisplay component */}
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

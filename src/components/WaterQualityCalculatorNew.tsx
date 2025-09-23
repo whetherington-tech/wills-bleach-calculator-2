@@ -838,7 +838,7 @@ export default function WaterQualityCalculatorNew() {
           </h1>
           <p className="wf-body-large text-center mb-8 max-w-3xl mx-auto">
             Discover how much chlorine you consume from your tap water on a yearly basis. Our free calculator uses local water data
-            to give you personalized results. <strong>No pressure, no gimmicks, no fine print or obligation.</strong>
+            to give you personalized results.<br/><strong>No pressure, no gimmicks, no fine print or obligation.</strong>
           </p>
 
           {/* Progress Indicator */}

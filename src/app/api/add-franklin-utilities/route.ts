@@ -3,7 +3,12 @@ import { supabase } from '@/lib/supabase'
 
 export async function POST() {
   try {
-    const results = {
+    const results: {
+      timestamp: string;
+      steps: Array<{ step: string; status: string; details?: any }>;
+      success: boolean;
+      errors: Array<{ step: string; error: any }>;
+    } = {
       timestamp: new Date().toISOString(),
       steps: [],
       success: false,
