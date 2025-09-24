@@ -84,7 +84,7 @@
 }
 
 body {
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   /* Official Will's Friends body font */
   font-family: 'Will\'s Friends Body', 'DIN Next LT Arabic', 'Helvetica Neue', Helvetica, Arial, sans-serif;
