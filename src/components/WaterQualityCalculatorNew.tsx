@@ -832,7 +832,7 @@ export default function WaterQualityCalculatorNew() {
   return (
     <div className="min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto">
-        <div className="wf-card">
+        <div className="wf-gradient-card wf-card">
           <h1 className="wf-h1 wf-text-gradient mb-8 sm:mb-12 text-center">
             HOW MUCH CHLORINE AM I REALLY DRINKING?
           </h1>
