@@ -31,7 +31,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
+            value: 'ALLOWALL'
           },
           {
             key: 'X-Content-Type-Options',
