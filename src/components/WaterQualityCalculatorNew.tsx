@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { WaterUtility, WaterSystem, CalculationResult } from '@/types/database'
 import { calculateShowerChlorineAbsorption, calculateTotalDailyExposure } from '@/utils/showerChlorineCalculations'
@@ -30,6 +30,21 @@ export default function WaterQualityCalculatorNew() {
   const [currentStep, setCurrentStep] = useState<'zip' | 'utility' | 'glasses' | 'shower' | 'loading' | 'results'>('zip')
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [manualEntryError, setManualEntryError] = useState<any>(null)
+
+  // Helper function to trigger height update
+  const triggerHeightUpdate = () => {
+    // Small delay to allow DOM to update first
+    setTimeout(() => {
+      if (typeof window !== 'undefined' && (window as any).triggerHeightUpdate) {
+        (window as any).triggerHeightUpdate()
+      }
+    }, 100)
+  }
+
+  // Trigger height update whenever currentStep changes
+  useEffect(() => {
+    triggerHeightUpdate()
+  }, [currentStep, error, availableUtilities.length, showManualEntry])
 
   const handleManualEntrySuccess = (data: any) => {
     console.log('🔧 Manual entry successful:', data)
@@ -61,6 +76,7 @@ export default function WaterQualityCalculatorNew() {
 
   const handleGlassesNext = () => {
     setCurrentStep('shower')
+    triggerHeightUpdate()
   }
 
   const handleShowerSelected = (minutes: number) => {
@@ -443,6 +459,8 @@ export default function WaterQualityCalculatorNew() {
       if (uniqueUtilities.length > 0) {
         setSelectedUtility(uniqueUtilities[0])
         setCurrentStep('utility')
+        // Trigger height update after utilities load
+        setTimeout(triggerHeightUpdate, 200)
       } else {
         setError('No water utilities found for this zip code. Please try a different zip code.')
       }
@@ -695,6 +713,7 @@ export default function WaterQualityCalculatorNew() {
         if (chlorineData) {
           console.log('🔧 Moving to glasses step with chlorine data:', chlorineData)
           setCurrentStep('glasses')
+          triggerHeightUpdate()
         } else {
           console.log('🔧 No chlorine data found - research failed or no data available')
           setError('No chlorine data available for this utility. Please try a different utility.')
@@ -768,6 +787,7 @@ export default function WaterQualityCalculatorNew() {
             setError('')
             setCurrentStep('results')
             console.log('🔧 Moving to results step!')
+            triggerHeightUpdate()
           } catch (calcError) {
             console.error('Error calculating results:', calcError)
             setError('Failed to calculate results. Please try again.')
@@ -960,10 +980,10 @@ export default function WaterQualityCalculatorNew() {
           <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <ManualChlorineEntry
               utilityInfo={{
-                pwsid: 'pwsid' in selectedUtility ? selectedUtility.pwsid : selectedUtility.pws_name,
-                utilityName: 'utility_name' in selectedUtility ? selectedUtility.utility_name : selectedUtility.pws_name,
-                city: 'city' in selectedUtility ? selectedUtility.city : selectedUtility.city_name,
-                state: 'state' in selectedUtility ? selectedUtility.state : selectedUtility.state_code
+                pwsid: ('pwsid' in selectedUtility) ? selectedUtility.pwsid : (selectedUtility as any).pws_name || 'unknown',
+                utilityName: ('utility_name' in selectedUtility) ? selectedUtility.utility_name : (selectedUtility as any).pws_name || 'unknown',
+                city: ('city' in selectedUtility) ? selectedUtility.city : (selectedUtility as any).city_name || 'unknown',
+                state: ('state' in selectedUtility) ? selectedUtility.state : (selectedUtility as any).state_code || 'unknown'
               }}
               errorInfo={manualEntryError}
               onSuccess={handleManualEntrySuccess}
