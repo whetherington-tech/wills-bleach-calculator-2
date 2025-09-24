@@ -62,8 +62,7 @@ export async function POST() {
         } else {
           results.steps.push({
             step: `insert_${utility.pwsid}`,
-            message: `Added ${utility.utility_name} to water_utilities table`,
-            success: true
+            status: `Added ${utility.utility_name} to water_utilities table`
           })
         }
       } else {
