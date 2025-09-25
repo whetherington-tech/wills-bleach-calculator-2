@@ -30,7 +30,7 @@ export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisp
     setTimeout(triggerHeightUpdate, 1000)
   }, [])
 
-  // Dynamic iClosed script loading with popup positioning
+  // Dynamic iClosed script loading
   useEffect(() => {
     console.log('🔧 Loading iClosed widget dynamically...')
 
@@ -46,49 +46,6 @@ export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisp
     script.type = 'text/javascript'
     script.src = 'https://app.iclosed.io/assets/widget.js'
     script.async = true
-
-    // Observer to reposition iClosed popups when they appear
-    const popupObserver = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            const element = node as Element
-            // Check if this is an iClosed popup or contains one
-            if (element.classList?.toString().includes('iclosed') ||
-                element.querySelector && element.querySelector('[class*="iclosed"]')) {
-              console.log('🎯 iClosed popup detected, repositioning to bottom...')
-
-              // Apply bottom positioning styles
-              if (element instanceof HTMLElement) {
-                element.style.position = 'fixed'
-                element.style.bottom = '20px'
-                element.style.top = 'auto'
-                element.style.left = '50%'
-                element.style.transform = 'translateX(-50%)'
-                element.style.zIndex = '10000'
-              }
-
-              // Also check for iframe within the popup
-              const iframe = element.querySelector('iframe[src*="iclosed.io"]')
-              if (iframe instanceof HTMLElement) {
-                iframe.style.position = 'fixed'
-                iframe.style.bottom = '20px'
-                iframe.style.top = 'auto'
-                iframe.style.left = '50%'
-                iframe.style.transform = 'translateX(-50%)'
-                iframe.style.zIndex = '10000'
-              }
-            }
-          }
-        })
-      })
-    })
-
-    // Start observing
-    popupObserver.observe(document.body, {
-      childList: true,
-      subtree: true
-    })
 
     // Track loading states
     script.onload = () => {
@@ -139,7 +96,6 @@ export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisp
       if (scriptToRemove) {
         scriptToRemove.remove()
       }
-      popupObserver.disconnect()
     }
   }, [])
   const formatChlorineData = () => {
