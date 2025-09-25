@@ -41,13 +41,27 @@ export default function WaterQualityCalculatorNew() {
     }, 100)
   }
 
-  // Helper function to scroll to top of page
+  // Helper function to scroll parent page to top (for iframe usage)
   const scrollToTop = () => {
     if (typeof window !== 'undefined') {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      })
+      // Try direct parent scroll first (same-origin)
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.scrollTo({ top: 0, behavior: 'smooth' })
+        }
+      } catch (error) {
+        // Cross-origin - use postMessage instead
+        console.log('🔄 Cross-origin detected, using postMessage for scroll')
+      }
+
+      // Always send postMessage as backup/primary method
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'scroll-to-top',
+          source: 'willsbleachcalculator'
+        }, '*')
+        console.log('📤 Scroll-to-top message sent to parent')
+      }
     }
   }
 
