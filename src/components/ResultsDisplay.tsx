@@ -11,6 +11,25 @@ interface ResultsDisplayProps {
 
 export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisplayProps) {
 
+  // Trigger height update on mount and after content loads
+  useEffect(() => {
+    const triggerHeightUpdate = () => {
+      if (typeof window !== 'undefined' && (window as any).triggerHeightUpdate) {
+        (window as any).triggerHeightUpdate()
+        console.log('📐 ResultsDisplay: Height update triggered')
+      }
+    }
+
+    // Initial trigger
+    triggerHeightUpdate()
+
+    // Trigger again after a short delay to ensure all content is rendered
+    setTimeout(triggerHeightUpdate, 300)
+
+    // Trigger again after animations/transitions complete
+    setTimeout(triggerHeightUpdate, 1000)
+  }, [])
+
   // Dynamic iClosed script loading
   useEffect(() => {
     console.log('🔧 Loading iClosed widget dynamically...')
