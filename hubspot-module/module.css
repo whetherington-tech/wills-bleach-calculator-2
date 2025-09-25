@@ -23,7 +23,7 @@
 #wf-calc-iframe {
   width: 100%;
   height: 400px; /* Start smaller and grow dynamically */
-  max-height: 3000px; /* Increased max height for longer forms */
+  /* Remove max-height limit to allow unlimited expansion */
   border: none;
   display: block;
   transition: height 0.3s ease;

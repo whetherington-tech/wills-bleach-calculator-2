@@ -41,7 +41,7 @@ window.addEventListener('message', function(event) {
 
     if (iframe && event.data.height) {
       // Remove artificial height limits - let it grow naturally
-      const newHeight = Math.max(400, Math.min(3000, event.data.height));
+      const newHeight = Math.max(400, event.data.height);
 
       // Only process if height change is significant
       const heightDiff = Math.abs(newHeight - lastProcessedHeight);
