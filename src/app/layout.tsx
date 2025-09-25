@@ -35,36 +35,50 @@ export default function RootLayout({
       >
         {children}
 
-        {/* Iframe Height Communication Script */}
+        {/* Iframe Height Communication Script - Anti-Loop Version */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
                 let lastHeight = 0;
                 let resizeTimeout;
+                let measurementCount = 0;
+                let isResizing = false;
 
                 function sendHeightToParent() {
+                  // Prevent excessive measurements that cause loops
+                  measurementCount++;
+                  if (measurementCount > 50) {
+                    console.warn('📐 Height measurement limit reached, stopping to prevent loops');
+                    return;
+                  }
+
+                  // Prevent rapid-fire measurements
+                  if (isResizing) {
+                    return;
+                  }
+
                   const body = document.body;
                   const html = document.documentElement;
 
-                  // Get the full height of the document
-                  const height = Math.max(
+                  // Get content height (NOT window height to avoid iframe feedback)
+                  const contentHeight = Math.max(
                     body.scrollHeight,
                     body.offsetHeight,
-                    html.clientHeight,
                     html.scrollHeight,
                     html.offsetHeight
                   );
 
-                  // Add some padding to prevent clipping
-                  const heightWithPadding = height + 50;
+                  // Minimal padding to prevent clipping
+                  const heightWithPadding = contentHeight + 20;
 
-                  // Only send message if height actually changed
-                  if (Math.abs(heightWithPadding - lastHeight) > 10) {
+                  // Only send if change is significant (prevents micro-adjustments causing loops)
+                  const heightDifference = Math.abs(heightWithPadding - lastHeight);
+                  if (heightDifference > 15) {
                     lastHeight = heightWithPadding;
+                    isResizing = true;
 
                     try {
-                      // Send message to parent window (HubSpot iframe container)
                       if (window.parent && window.parent !== window) {
                         window.parent.postMessage({
                           type: 'calculator-resize',
@@ -72,40 +86,48 @@ export default function RootLayout({
                           source: 'willsbleachcalculator'
                         }, '*');
 
-                        console.log('📐 Height message sent:', heightWithPadding);
+                        console.log('📐 Height message sent:', heightWithPadding, '(measurement #' + measurementCount + ', diff: +' + heightDifference + 'px)');
                       }
                     } catch (error) {
                       console.warn('Could not send height message to parent:', error);
                     }
+
+                    // Reset resize flag after a delay
+                    setTimeout(() => {
+                      isResizing = false;
+                    }, 500);
                   }
                 }
 
                 // Send initial height after page loads
                 function initialize() {
-                  // Wait for DOM to be fully loaded
                   if (document.readyState === 'loading') {
                     document.addEventListener('DOMContentLoaded', function() {
-                      setTimeout(sendHeightToParent, 100);
+                      setTimeout(sendHeightToParent, 300);
                     });
                   } else {
-                    setTimeout(sendHeightToParent, 100);
+                    setTimeout(sendHeightToParent, 300);
                   }
 
-                  // Set up observers for height changes
+                  // Less aggressive ResizeObserver
                   if (window.ResizeObserver) {
                     const resizeObserver = new ResizeObserver(function() {
                       clearTimeout(resizeTimeout);
-                      resizeTimeout = setTimeout(sendHeightToParent, 150);
+                      resizeTimeout = setTimeout(sendHeightToParent, 400);
                     });
                     resizeObserver.observe(document.body);
                   }
 
-                  // Fallback: periodically check height
-                  setInterval(sendHeightToParent, 1000);
+                  // Reduced polling frequency to prevent loops
+                  setInterval(sendHeightToParent, 3000);
                 }
 
                 // Make function globally available for manual triggers
-                window.triggerHeightUpdate = sendHeightToParent;
+                window.triggerHeightUpdate = function() {
+                  // Reset measurement count on manual triggers
+                  measurementCount = 0;
+                  sendHeightToParent();
+                };
 
                 // Initialize when script loads
                 initialize();
