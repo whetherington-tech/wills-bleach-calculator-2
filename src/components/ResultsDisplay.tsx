@@ -30,7 +30,7 @@ export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisp
     setTimeout(triggerHeightUpdate, 1000)
   }, [])
 
-  // Dynamic iClosed script loading
+  // Dynamic iClosed script loading with iframe positioning support
   useEffect(() => {
     console.log('🔧 Loading iClosed widget dynamically...')
 
@@ -40,6 +40,47 @@ export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisp
       console.log('🗑️ Removing existing script')
       existingScript.remove()
     }
+
+    // Listen for parent scroll position updates (for HubSpot iframe positioning)
+    const handleParentScroll = (event: MessageEvent) => {
+      if (event.data &&
+          event.data.type === 'parent-scroll-position' &&
+          event.data.source === 'hubspot-parent') {
+
+        console.log('📍 Received parent scroll position:', event.data.scrollTop)
+
+        // Find and reposition iClosed modals
+        const repositionModals = () => {
+          const modals = document.querySelectorAll('[class*="iclosed"], iframe[src*="iclosed.io"]')
+          modals.forEach((modal) => {
+            if (modal instanceof HTMLElement) {
+              // Position modal near top of visible viewport
+              const targetPosition = event.data.scrollTop + 50
+              modal.style.position = 'fixed'
+              modal.style.top = targetPosition + 'px'
+              modal.style.left = '50%'
+              modal.style.transform = 'translateX(-50%)'
+              modal.style.zIndex = '10000'
+              console.log('📍 Repositioned iClosed modal to:', targetPosition + 'px')
+            }
+          })
+        }
+
+        // Apply positioning immediately and also watch for new modals
+        repositionModals()
+
+        // Use MutationObserver to catch dynamically created modals
+        const observer = new MutationObserver(() => {
+          repositionModals()
+        })
+        observer.observe(document.body, { childList: true, subtree: true })
+
+        // Clean up observer after a short time
+        setTimeout(() => observer.disconnect(), 5000)
+      }
+    }
+
+    window.addEventListener('message', handleParentScroll)
 
     // Create and inject script dynamically
     const script = document.createElement('script')
@@ -96,6 +137,7 @@ export default function ResultsDisplay({ result, onNewCalculation }: ResultsDisp
       if (scriptToRemove) {
         scriptToRemove.remove()
       }
+      window.removeEventListener('message', handleParentScroll)
     }
   }, [])
   const formatChlorineData = () => {
