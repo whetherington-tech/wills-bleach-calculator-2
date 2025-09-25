@@ -58,23 +58,19 @@ export default function RootLayout({
                     return;
                   }
 
-                  const body = document.body;
-                  const html = document.documentElement;
-
-                  // Get content height (NOT window height to avoid iframe feedback)
+                  // Use clientHeight instead of scrollHeight to avoid iframe feedback loops
                   const contentHeight = Math.max(
-                    body.scrollHeight,
-                    body.offsetHeight,
-                    html.scrollHeight,
-                    html.offsetHeight
+                    document.documentElement.clientHeight,
+                    document.body.clientHeight,
+                    document.documentElement.scrollHeight
                   );
 
                   // Minimal padding to prevent clipping
                   const heightWithPadding = contentHeight + 20;
 
-                  // Only send if change is significant (prevents micro-adjustments causing loops)
+                  // Higher threshold to prevent micro-adjustments causing loops
                   const heightDifference = Math.abs(heightWithPadding - lastHeight);
-                  if (heightDifference > 15) {
+                  if (heightDifference > 25) {
                     lastHeight = heightWithPadding;
                     isResizing = true;
 
@@ -83,7 +79,9 @@ export default function RootLayout({
                         window.parent.postMessage({
                           type: 'calculator-resize',
                           height: heightWithPadding,
-                          source: 'willsbleachcalculator'
+                          source: 'willsbleachcalculator',
+                          timestamp: Date.now(),
+                          sessionId: 'calc-' + Math.random().toString(36).substr(2, 9)
                         }, '*');
 
                         console.log('📐 Height message sent:', heightWithPadding, '(measurement #' + measurementCount + ', diff: +' + heightDifference + 'px)');
@@ -92,10 +90,10 @@ export default function RootLayout({
                       console.warn('Could not send height message to parent:', error);
                     }
 
-                    // Reset resize flag after a delay
+                    // Reset resize flag after longer delay for stability
                     setTimeout(() => {
                       isResizing = false;
-                    }, 500);
+                    }, 1000);
                   }
                 }
 
@@ -109,17 +107,17 @@ export default function RootLayout({
                     setTimeout(sendHeightToParent, 300);
                   }
 
-                  // Less aggressive ResizeObserver
+                  // Less aggressive ResizeObserver with longer debouncing
                   if (window.ResizeObserver) {
                     const resizeObserver = new ResizeObserver(function() {
                       clearTimeout(resizeTimeout);
-                      resizeTimeout = setTimeout(sendHeightToParent, 400);
+                      resizeTimeout = setTimeout(sendHeightToParent, 1000);
                     });
                     resizeObserver.observe(document.body);
                   }
 
-                  // Reduced polling frequency to prevent loops
-                  setInterval(sendHeightToParent, 3000);
+                  // Further reduced polling frequency to prevent loops
+                  setInterval(sendHeightToParent, 5000);
                 }
 
                 // Make function globally available for manual triggers

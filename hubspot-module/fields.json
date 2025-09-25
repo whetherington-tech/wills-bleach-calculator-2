@@ -1,0 +1,22 @@
+[
+  {
+    "id": "calculator_url",
+    "name": "calculator_url",
+    "label": "Calculator URL",
+    "required": false,
+    "locked": false,
+    "type": "text",
+    "default": "https://willsbleachcalculator.netlify.app/",
+    "help_text": "URL of the calculator to embed (default: production calculator)"
+  },
+  {
+    "id": "initial_height",
+    "name": "initial_height",
+    "label": "Initial Height (px)",
+    "required": false,
+    "locked": false,
+    "type": "number",
+    "default": 800,
+    "help_text": "Initial iframe height in pixels (will auto-adjust based on content)"
+  }
+]

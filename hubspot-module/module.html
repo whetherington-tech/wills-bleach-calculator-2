@@ -1,0 +1,91 @@
+<!-- Will's Bleach Calculator - Custom HubSpot Module -->
+<div class="wf-calculator-module">
+  <div id="wf-calc-container">
+    <iframe
+      id="wf-calc-iframe"
+      src="https://willsbleachcalculator.netlify.app/"
+      title="Will's Bleach Calculator"
+      frameborder="0"
+      scrolling="no">
+    </iframe>
+  </div>
+</div>
+
+<script>
+// Enhanced postMessage handler with anti-loop protection
+let lastProcessedHeight = 0;
+let lastMessageTime = 0;
+let messageCount = 0;
+
+window.addEventListener('message', function(event) {
+  // Enhanced message filtering
+  if (event.data &&
+      event.data.type === 'calculator-resize' &&
+      event.data.source === 'willsbleachcalculator') {
+
+    const iframe = document.getElementById('wf-calc-iframe');
+    const container = document.getElementById('wf-calc-container');
+    const now = Date.now();
+
+    // Prevent message processing floods
+    if (now - lastMessageTime < 1000) {
+      console.log('📐 Custom Module: Message ignored (too frequent)');
+      return;
+    }
+
+    messageCount++;
+    if (messageCount > 30) {
+      console.warn('📐 Custom Module: Message limit reached, stopping to prevent loops');
+      return;
+    }
+
+    if (iframe && event.data.height) {
+      // Remove artificial height limits - let it grow naturally
+      const newHeight = Math.max(400, Math.min(3000, event.data.height));
+
+      // Only process if height change is significant
+      const heightDiff = Math.abs(newHeight - lastProcessedHeight);
+      if (heightDiff < 30) {
+        console.log('📐 Custom Module: Height change too small, ignored:', heightDiff + 'px');
+        return;
+      }
+
+      lastProcessedHeight = newHeight;
+      lastMessageTime = now;
+
+      console.log('📐 Custom Module: Processing height update:', event.data.height, '→', newHeight, '(diff: +' + heightDiff + 'px)');
+
+      // Update iframe height with transition
+      iframe.style.height = newHeight + 'px';
+
+      // Update container heights without min-height constraints
+      if (container) {
+        container.style.height = 'auto';
+      }
+
+      // Update module container
+      const moduleContainer = iframe.closest('.wf-calculator-module');
+      if (moduleContainer) {
+        moduleContainer.style.height = 'auto';
+      }
+
+      console.log('📐 Custom Module: Height updated to', newHeight + 'px');
+    }
+  }
+});
+
+// Initialize iframe
+document.addEventListener('DOMContentLoaded', function() {
+  const iframe = document.getElementById('wf-calc-iframe');
+  if (iframe) {
+    console.log('📐 Custom Module: Iframe initialized');
+
+    iframe.onload = function() {
+      console.log('📐 Custom Module: Iframe loaded, ready for height messages');
+      // Reset counters on iframe load
+      messageCount = 0;
+      lastProcessedHeight = 0;
+    };
+  }
+});
+</script>

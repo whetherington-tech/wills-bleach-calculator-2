@@ -1,0 +1,69 @@
+/* Will's Bleach Calculator - Custom Module CSS */
+
+.wf-calculator-module {
+  width: 100%;
+  height: auto !important;
+  overflow: visible !important;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  /* Remove fixed min-height to prevent measurement feedback loops */
+}
+
+#wf-calc-container {
+  width: 100%;
+  height: auto !important;
+  overflow: visible !important;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  /* Remove fixed min-height for dynamic growth */
+}
+
+#wf-calc-iframe {
+  width: 100%;
+  height: 400px; /* Start smaller and grow dynamically */
+  max-height: 3000px; /* Increased max height for longer forms */
+  border: none;
+  display: block;
+  transition: height 0.3s ease;
+  overflow: visible !important;
+  /* Remove min-height to allow natural sizing */
+  box-sizing: border-box;
+}
+
+/* Override any HubSpot container restrictions */
+.wf-calculator-module,
+.wf-calculator-module * {
+  box-sizing: border-box;
+}
+
+/* Force parent containers to respect our height */
+.wf-calculator-module {
+  contain: none !important;
+}
+
+/* Responsive adjustments - remove fixed heights for mobile too */
+@media (max-width: 768px) {
+  #wf-calc-iframe {
+    height: 450px; /* Slightly taller initial height on mobile */
+  }
+}
+
+/* Ensure no HubSpot module wrapper interference */
+[class*="hs_cos_wrapper"] .wf-calculator-module {
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Additional safety overrides */
+.wf-calculator-module {
+  max-width: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+.wf-calculator-module > * {
+  height: auto !important;
+  overflow: visible !important;
+}

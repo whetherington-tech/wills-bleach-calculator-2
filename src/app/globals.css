@@ -89,6 +89,9 @@ body {
   /* Official Will's Friends body font */
   font-family: 'Will\'s Friends Body', 'DIN Next LT Arabic', 'Helvetica Neue', Helvetica, Arial, sans-serif;
   line-height: 1.6;
+  /* Iframe height stability fixes */
+  height: auto !important;
+  box-sizing: border-box;
 }
 
 /* Brand font families */
