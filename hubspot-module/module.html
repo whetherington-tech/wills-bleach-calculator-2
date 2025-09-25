@@ -43,12 +43,15 @@ window.addEventListener('message', function(event) {
       // Remove artificial height limits - let it grow naturally
       const newHeight = Math.max(400, event.data.height);
 
-      // Only process if height change is significant
+      // Only process if height change is significant (reduced threshold)
       const heightDiff = Math.abs(newHeight - lastProcessedHeight);
-      if (heightDiff < 30) {
+      if (heightDiff < 10) {
         console.log('📐 Custom Module: Height change too small, ignored:', heightDiff + 'px');
         return;
       }
+
+      // Debug logging to understand what heights we're receiving
+      console.log('📐 Custom Module: Height details - Raw:', event.data.height, 'Processed:', newHeight, 'Last:', lastProcessedHeight, 'Diff:', heightDiff);
 
       lastProcessedHeight = newHeight;
       lastMessageTime = now;

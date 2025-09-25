@@ -16,7 +16,7 @@
     "required": false,
     "locked": false,
     "type": "number",
-    "default": 800,
+    "default": 400,
     "help_text": "Initial iframe height in pixels (will auto-adjust based on content)"
   }
 ]
