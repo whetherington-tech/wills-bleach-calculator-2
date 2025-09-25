@@ -41,9 +41,20 @@ export default function WaterQualityCalculatorNew() {
     }, 100)
   }
 
-  // Trigger height update whenever currentStep changes
+  // Helper function to scroll to top of page
+  const scrollToTop = () => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  // Trigger height update and scroll to top whenever currentStep changes
   useEffect(() => {
     triggerHeightUpdate()
+    scrollToTop() // Auto-scroll to top when step changes
   }, [currentStep, error, availableUtilities.length, showManualEntry])
 
   const handleManualEntrySuccess = (data: any) => {

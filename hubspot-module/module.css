@@ -1,4 +1,4 @@
-/* Will's Bleach Calculator - Custom Module CSS */
+/* Will's Bleach Calculator - Dynamic Module CSS */
 
 .wf-calculator-module {
   width: 100%;
@@ -7,7 +7,7 @@
   position: relative;
   margin: 0;
   padding: 0;
-  /* Remove fixed min-height to prevent measurement feedback loops */
+  /* REMOVED: min-height: 800px; */
 }
 
 #wf-calc-container {
@@ -17,19 +17,18 @@
   position: relative;
   margin: 0;
   padding: 0;
-  /* Remove fixed min-height for dynamic growth */
+  /* REMOVED: min-height: 800px; */
 }
 
 #wf-calc-iframe {
   width: 100%;
-  height: 400px; /* Start smaller and grow dynamically */
-  /* Remove max-height limit to allow unlimited expansion */
+  height: 400px; /* START SMALL - will grow via postMessage */
   border: none;
   display: block;
   transition: height 0.3s ease;
   overflow: visible !important;
-  /* Remove min-height to allow natural sizing */
-  box-sizing: border-box;
+  /* REMOVED: min-height: 800px; */
+  /* REMOVED: max-height: 2000px; - let it grow unlimited */
 }
 
 /* Override any HubSpot container restrictions */
@@ -43,11 +42,12 @@
   contain: none !important;
 }
 
-/* Responsive adjustments - remove fixed heights for mobile too */
+/* Responsive adjustments - NO FIXED HEIGHTS */
 @media (max-width: 768px) {
   #wf-calc-iframe {
-    height: 450px; /* Slightly taller initial height on mobile */
+    height: 400px; /* Still start small on mobile */
   }
+  /* REMOVED: All min-height declarations */
 }
 
 /* Ensure no HubSpot module wrapper interference */
@@ -66,4 +66,9 @@
 .wf-calculator-module > * {
   height: auto !important;
   overflow: visible !important;
+}
+
+/* Ensure iframe can grow without limits */
+#wf-calc-iframe {
+  max-height: none !important;
 }

@@ -13,66 +13,55 @@
 
 <script>
 // Enhanced postMessage handler with anti-loop protection
-let lastProcessedHeight = 0;
-let lastMessageTime = 0;
-let messageCount = 0;
+let lastHeight = 0;
+let resizeTimeout;
 
 window.addEventListener('message', function(event) {
-  // Enhanced message filtering
-  if (event.data &&
-      event.data.type === 'calculator-resize' &&
-      event.data.source === 'willsbleachcalculator') {
-
+  if (event.data && event.data.type === 'calculator-resize') {
     const iframe = document.getElementById('wf-calc-iframe');
     const container = document.getElementById('wf-calc-container');
-    const now = Date.now();
-
-    // Prevent message processing floods
-    if (now - lastMessageTime < 1000) {
-      console.log('📐 Custom Module: Message ignored (too frequent)');
-      return;
-    }
-
-    messageCount++;
-    if (messageCount > 30) {
-      console.warn('📐 Custom Module: Message limit reached, stopping to prevent loops');
-      return;
-    }
 
     if (iframe && event.data.height) {
-      // Remove artificial height limits - let it grow naturally
-      const newHeight = Math.max(400, event.data.height);
+      const requestedHeight = event.data.height;
+      const currentHeight = parseInt(iframe.style.height) || 400;
 
-      // Only process if height change is significant (reduced threshold)
-      const heightDiff = Math.abs(newHeight - lastProcessedHeight);
-      if (heightDiff < 10) {
-        console.log('📐 Custom Module: Height change too small, ignored:', heightDiff + 'px');
+      // ANTI-LOOP PROTECTION: Only resize if change is significant
+      const heightDifference = Math.abs(requestedHeight - currentHeight);
+      if (heightDifference < 10) {
+        console.log('📐 Custom Module: Height change too small, skipping resize');
         return;
       }
 
-      // Debug logging to understand what heights we're receiving
-      console.log('📐 Custom Module: Height details - Raw:', event.data.height, 'Processed:', newHeight, 'Last:', lastProcessedHeight, 'Diff:', heightDiff);
+      // Enhanced logging to show direction of change
+      const direction = requestedHeight > currentHeight ? 'expanding' : 'shrinking';
+      console.log('📐 Custom Module: Height change detected (' + direction + ') - Current:', currentHeight + 'px, Requested:', requestedHeight + 'px');
 
-      lastProcessedHeight = newHeight;
-      lastMessageTime = now;
+      // Prevent runaway expansion (increased from 3000 to 4500)
+      const maxHeight = 4500;
+      const newHeight = Math.min(requestedHeight, maxHeight);
 
-      console.log('📐 Custom Module: Processing height update:', event.data.height, '→', newHeight, '(diff: +' + heightDiff + 'px)');
+      // Debounce rapid updates
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        console.log('📐 Custom Module: Resizing from', currentHeight + 'px to', newHeight + 'px (' + direction + ')');
 
-      // Update iframe height with transition
-      iframe.style.height = newHeight + 'px';
+        // Update iframe height
+        iframe.style.height = newHeight + 'px';
 
-      // Update container heights without min-height constraints
-      if (container) {
-        container.style.height = 'auto';
-      }
+        // Update container
+        if (container) {
+          container.style.height = 'auto';
+        }
 
-      // Update module container
-      const moduleContainer = iframe.closest('.wf-calculator-module');
-      if (moduleContainer) {
-        moduleContainer.style.height = 'auto';
-      }
+        // Update module container
+        const moduleContainer = iframe.closest('.wf-calculator-module');
+        if (moduleContainer) {
+          moduleContainer.style.height = 'auto';
+        }
 
-      console.log('📐 Custom Module: Height updated to', newHeight + 'px');
+        lastHeight = newHeight;
+        console.log('📐 Custom Module: Resize complete - iframe now', newHeight + 'px');
+      }, 100);
     }
   }
 });
@@ -81,13 +70,10 @@ window.addEventListener('message', function(event) {
 document.addEventListener('DOMContentLoaded', function() {
   const iframe = document.getElementById('wf-calc-iframe');
   if (iframe) {
-    console.log('📐 Custom Module: Iframe initialized');
+    console.log('📐 Custom Module: Iframe initialized at 400px');
 
     iframe.onload = function() {
       console.log('📐 Custom Module: Iframe loaded, ready for height messages');
-      // Reset counters on iframe load
-      messageCount = 0;
-      lastProcessedHeight = 0;
     };
   }
 });
